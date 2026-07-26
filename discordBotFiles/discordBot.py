@@ -47,6 +47,8 @@ async def on_message(message):
         return
     if message.author.id == TALLY_BOT_ID:
         embedMessage = (message.embeds[0].description).split("\n")
+        supabaseClient.table("reports").insert(
+            {"description": embedMessage[0], "location": embedMessage[1], "photos": "\n\n".join(embedMessage[4:]), "reporter_contact": embedMessage[3]}).execute()
         photos = []
         async with aiohttp.ClientSession() as session:
             for index in range(4, len(embedMessage)):
@@ -70,7 +72,7 @@ async def hello(ctx):
 
 @bot.command()
 async def goodgirl(ctx):
-    await ctx.send(f"YES I AM YES I AM  ฅ/ᐠ˶> ﻌ<˶ᐟ\ฅ")
+    await ctx.send(f"YES I AM YES I AM  (๑ > ᴗ < ๑)")
 
 @tasks.loop(time=times)
 async def remind():
@@ -82,8 +84,9 @@ async def remind():
     .match({"feeding_day": day, "feeding_time": hour})
     .execute()
     )
+    feeders = len(response)
 
-    for index in range(2):
+    for index in range(feeders):
         feedingMessage = await bot.get_channel(FEEDING_CHANNEL_ID).send(
             f"HAY {bot.get_user(response.data[index]['discord_id']).mention} ITD TIMED TO FEED TEH CARS AT BKOLCK {response.data[index]['block_num']} (react when you are done)  ≽^•⩊•^≼ ")
         await feedingMessage.add_reaction("😋")
