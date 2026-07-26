@@ -3,8 +3,8 @@ from discord.ext import commands, tasks
 import logging
 from dotenv import load_dotenv
 import os
-import time
 import datetime
+from zoneinfo import ZoneInfo
 from supabase import create_client, Client
 
 load_dotenv()
@@ -18,12 +18,13 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix=':3', intents=intents)
 
-utc = datetime.timezone.utc
-times = [datetime.time(hour=9, tzinfo=utc), datetime.time(hour=13, minute=20, tzinfo=utc)]
+localTime = ZoneInfo("Asia/Karachi")
+times = [datetime.time(hour=9, tzinfo=localTime), datetime.time(hour=18, minute=0, tzinfo=localTime)]
+FEEDING_CHANNEL_ID = 1527421490520133652
+WELCOME_CHANNEL_ID = 1530693475761127425
 
 try:
     test = supabaseClient.table('feedingrun').select('*').execute()
-    print(test.data)
 except Exception as e:
     print(f"Error connecting to Supabase: {e}")
 
@@ -31,6 +32,10 @@ except Exception as e:
 async def on_ready():
     print(f"We are ready to go in, {bot.user.name}")
     remind.start()
+
+@bot.event
+async def on_member_join(member):
+    await bot.get_channel(WELCOME_CHANNEL_ID).send(f"WELCOME TO THE SERVER {member.mention}!!!!!!!  ฅ^•ﻌ•^ฅ")
 
 @bot.event
 async def on_message(message):
@@ -45,17 +50,16 @@ async def on_message(message):
 async def hello(ctx):
     await ctx.send(f"hello hru {ctx.author.mention}")
 
-# @bot.command()
-# async def reminder(ctx):
-#     await ctx.send("OKAAY I WILL REMINDS >^. .^<")
-#     await asyncio.sleep((18 - time.localtime()[3] - 1) * 3600 + (60 - time.localtime()[4]) * 60)
-#     print((17 - time.localtime()[3] - 1) * 3600 + (60 - time.localtime()[4]) * 60)
-#     await bot.get_channel(1527421490520133652).send(f"HAY {bot.get_user(485499418817200169).mention} ITD TIMED TO FEED TEH CARS ≽^•⩊•^≼ ")
-
 @tasks.loop(time=times)
 async def remind():
-    dayLetter = datetime.datetime.now().strftime("%A")
-    day = datetime.datetime.now().weekday()
-    await bot.get_channel(1527421490520133652).send(f"HAY {bot.get_user(485499418817200169).mention} ITD TIMED TO FEED TEH CARS ≽^•⩊•^≼ ")
+    day = datetime.datetime.now(localTime).strftime("%a")
+    hour = datetime.datetime.now(localTime).hour
+    response = (
+    supabaseClient.table("feedingrun")
+    .select("*")
+    .match({"feeding_day": day, "feeding_time": hour})
+    .execute()
+    )
+    await bot.get_channel(FEEDING_CHANNEL_ID).send(f"HAY {bot.get_user(response.data[0]['discord_id']).mention} ITD TIMED TO FEED TEH CARS AT BKOLCK {response.data[0]['block_num']}  ≽^•⩊•^≼ ")
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
