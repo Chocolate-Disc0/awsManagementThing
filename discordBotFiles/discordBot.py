@@ -32,7 +32,7 @@ EMERGENCIES_CHANNEL_ID = 1527325468007731360
 TALLY_BOT_ID = 1427635858604949667
 
 try:
-    test = supabaseClient.table('feedingrun').select('*').execute()
+    test = supabaseClient.table('feedingRun').select('*').execute()
 except Exception as e:
     print(f"Error connecting to Supabase: {e}")
 
@@ -45,7 +45,7 @@ class VetVisit(ui.Modal, title='Vet Visit Info'):
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.send_message(f"Your vet report has been submitted {interaction.user.mention}!!!")
-        supabaseClient.table("vet_visits").insert(
+        supabaseClient.table("vetVisits").insert(
             {"animal_name": self.animalName.component.value.lower(), "vet_name": self.vetName.component.value, "boarded": self.boarded.component.value.lower(),\
              "volunteer_name": self.volunteerName.component.value, "description": self.description.component.value}
         ).execute()
@@ -72,7 +72,7 @@ async def vet_visits(interaction: discord.Interaction):
 @bot.tree.command(name="boarded_animals", description="Animals at the vet", guild=GUILD_ID)
 async def boarded_animals(interaction: discord.Interaction):
     response = (
-    supabaseClient.table("vet_visits")
+    supabaseClient.table("vetVisits")
     .select("*")
     .match({"boarded": True})
     .execute()
@@ -90,13 +90,31 @@ async def boarded_animals(interaction: discord.Interaction):
 @bot.tree.command(name="animal_returned", description="Boarded at the vet returned", guild=GUILD_ID)
 async def animal_returned(interaction: discord.Interaction, animal_name: str):
     response = (
-    supabaseClient.table("vet_visits")
+    supabaseClient.table("vetVisits")
     .update({"boarded": False})
     .match({"animal_name": animal_name.lower(), "boarded": True})
     .execute()
     )
     if len(response.data) != 0:
         await interaction.response.send_message(f"{interaction.user.mention} THANKU SO MUCH FOR BRINGING {animal_name} BACK!!!!!!  /ᐠ≽•ヮ•≼マ")
+    else:
+        await interaction.response.send_message("I couldnt find an animal by that name are u srue its correct  ₍^. .^₎⟆")
+
+@bot.tree.command(name="vet_history", description="Every vet visit of this animal", guild=GUILD_ID)
+async def vet_history(interaction: discord.Interaction, animal_name: str):
+    response = (
+    supabaseClient.table("vetVisits")
+    .select("*")
+    .match({"animal_name": animal_name.lower()})
+    .execute()
+    )
+    output = animal_name + "s vet history:\n"
+    for index in range(len(response.data)):
+        output += (f"It was taken to {response.data[index]["vet_name"]} on "
+                   f"{response.data[index]["created_at"]} by {response.data[index]["volunteer_name"]} because of: "
+                    f"{response.data[index]["description"]}\n\n")
+    if output != "":
+        await interaction.response.send_message(output)
     else:
         await interaction.response.send_message("I couldnt find an animal by that name are u srue its correct  ₍^. .^₎⟆")
 
@@ -140,7 +158,7 @@ async def remind():
     day = datetime.datetime.now(localTime).strftime("%a")
     hour = datetime.datetime.now(localTime).hour
     response = (
-    supabaseClient.table("feedingrun")
+    supabaseClient.table("feedingRun")
     .select("*")
     .match({"feeding_day": day, "feeding_time": hour})
     .execute()
