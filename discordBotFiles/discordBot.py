@@ -3,6 +3,7 @@ from discord import ui, app_commands
 from discord.ext import commands, tasks
 import logging
 from dotenv import load_dotenv
+import random
 import os
 import datetime
 import io
@@ -24,6 +25,7 @@ bot = commands.Bot(command_prefix=':3', intents=intents, guild=GUILD_ID)
 
 localTime = ZoneInfo("Asia/Karachi")
 times = [datetime.time(hour=9, tzinfo=localTime), datetime.time(hour=14, minute=3, tzinfo=localTime)]
+FEEDING_EMOJIS = ["😋", "🍙", "🦑", "🐈", "🐈‍⬛", "🐅", "🐆", "😼"]
 FEEDING_CHANNEL_ID = 1527421490520133652
 WELCOME_CHANNEL_ID = 1530693475761127425
 EMERGENCIES_CHANNEL_ID = 1527325468007731360
@@ -147,6 +149,6 @@ async def remind():
     for index in range(len(response.data)):
         feedingMessage = await bot.get_channel(FEEDING_CHANNEL_ID).send(
             f"HAY {bot.get_user(response.data[index]['discord_id']).mention} ITD TIMED TO FEED TEH CARS AT BKOLCK {response.data[index]['block_num']} (react when you are done)  ≽^•⩊•^≼ ")
-        await feedingMessage.add_reaction("😋")
+        await feedingMessage.add_reaction(random.choice(FEEDING_EMOJIS))
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
