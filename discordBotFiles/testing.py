@@ -10,4 +10,4 @@ localTime = ZoneInfo("Asia/Karachi")
 dayLetter = datetime.datetime.now(localTime).strftime("%a")
 day = datetime.datetime.now(localTime).hour
 
-print(dayLetter, day)
+print(dayLetter, day, "hello")
