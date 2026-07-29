@@ -24,12 +24,13 @@ GUILD_ID = discord.Object(id=1527325303528231023)
 bot = commands.Bot(command_prefix=':3', intents=intents, guild=GUILD_ID)
 
 localTime = ZoneInfo("Asia/Karachi")
-times = [datetime.time(hour=9, tzinfo=localTime), datetime.time(hour=14, minute=3, tzinfo=localTime)]
+times = [datetime.time(hour=9, tzinfo=localTime), datetime.time(hour=16, minute=19, tzinfo=localTime)]
 FEEDING_EMOJIS = ["😋", "🍙", "🦑", "🐈", "🐈‍⬛", "🐅", "🐆", "😼"]
 FEEDING_CHANNEL_ID = 1527421490520133652
 WELCOME_CHANNEL_ID = 1530693475761127425
 EMERGENCIES_CHANNEL_ID = 1527325468007731360
 TALLY_BOT_ID = 1427635858604949667
+VET_FORM_ID = 1532138155854266539
 
 try:
     test = supabaseClient.table('feedingRun').select('*').execute()
@@ -50,6 +51,26 @@ class VetVisit(ui.Modal, title='Vet Visit Info'):
              "volunteer_name": self.volunteerName.component.value, "description": self.description.component.value}
         ).execute()
 
+class FeedingButton(discord.ui.View):
+    def __init__(self, logID):
+        super().__init__(timeout=None)
+        self.logID = logID
+
+    @discord.ui.button(label='Feeding Done', style=discord.ButtonStyle.blurple)
+    async def feedingDone(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("Thanku for feeding them!!", ephemeral=True)
+        memberName = (
+        supabaseClient.table("discordIDs")
+        .select("member_name")
+        .eq("discord_id", interaction.user.id)
+        .execute()
+        )
+        supabaseClient.table("feedingsLog")\
+            .update({"feeding_done": True, "feeder_name": memberName.data[0]["member_name"], "completion_time": datetime.datetime.now(localTime).isoformat()})\
+            .eq("id", self.logID)\
+            .execute()
+        self.stop()
+
 @bot.event
 async def on_ready():
     print(f"I THE GREAT {bot.user.name} AM READY TO GO RAHHHHHH >⩊<")
@@ -66,11 +87,15 @@ async def on_member_join(member):
 
 @bot.tree.command(name="vet_visits", description="Reports for vet visits", guild=GUILD_ID)
 async def vet_visits(interaction: discord.Interaction):
+    if VET_FORM_ID not in [role.id for role in interaction.user.roles]:
+        await interaction.response.send_message("You dont have permission for this why are you trying /ᐠ ¬`‸´¬ マ")
+        return
     modal = VetVisit()
     await interaction.response.send_modal(modal)
 
 @bot.tree.command(name="boarded_animals", description="Animals at the vet", guild=GUILD_ID)
 async def boarded_animals(interaction: discord.Interaction):
+    await interaction.response.defer()
     response = (
     supabaseClient.table("vetVisits")
     .select("*")
@@ -83,12 +108,13 @@ async def boarded_animals(interaction: discord.Interaction):
                    f"{response.data[index]["created_at"]} by {response.data[index]["volunteer_name"]} because of: "
                     f"{response.data[index]["description"]}\n\n")
     if output != "":
-        await interaction.response.send_message(output)
+        await interaction.followup.send(output)
     else:
-        await interaction.response.send_message("NO ANIMALS ARE BOARDED RN!!!!  (๑ᵔ⤙ᵔ๑)")
+        await interaction.followup.send("NO ANIMALS ARE BOARDED RN!!!!  (๑ᵔ⤙ᵔ๑)")
 
 @bot.tree.command(name="animal_returned", description="Boarded at the vet returned", guild=GUILD_ID)
 async def animal_returned(interaction: discord.Interaction, animal_name: str):
+    await interaction.response.defer()
     response = (
     supabaseClient.table("vetVisits")
     .update({"boarded": False})
@@ -96,12 +122,13 @@ async def animal_returned(interaction: discord.Interaction, animal_name: str):
     .execute()
     )
     if len(response.data) != 0:
-        await interaction.response.send_message(f"{interaction.user.mention} THANKU SO MUCH FOR BRINGING {animal_name} BACK!!!!!!  /ᐠ≽•ヮ•≼マ")
+        await interaction.followup.send(f"{interaction.user.mention} THANKU SO MUCH FOR BRINGING {animal_name} BACK!!!!!!  /ᐠ≽•ヮ•≼マ")
     else:
-        await interaction.response.send_message("I couldnt find an animal by that name are u srue its correct  ₍^. .^₎⟆")
+        await interaction.followup.send("I couldnt find an animal by that name are u srue its correct  ₍^. .^₎⟆")
 
 @bot.tree.command(name="vet_history", description="Every vet visit of this animal", guild=GUILD_ID)
 async def vet_history(interaction: discord.Interaction, animal_name: str):
+    await interaction.response.defer()
     response = (
     supabaseClient.table("vetVisits")
     .select("*")
@@ -114,9 +141,9 @@ async def vet_history(interaction: discord.Interaction, animal_name: str):
                    f"{response.data[index]["created_at"]} by {response.data[index]["volunteer_name"]} because of: "
                     f"{response.data[index]["description"]}\n\n")
     if output != "":
-        await interaction.response.send_message(output)
+        await interaction.followup.send(output)
     else:
-        await interaction.response.send_message("I couldnt find an animal by that name are u srue its correct  ₍^. .^₎⟆")
+        await interaction.followup.send("I couldnt find an animal by that name are u srue its correct  ₍^. .^₎⟆")
 
 @bot.event
 async def on_message(message):
@@ -165,8 +192,11 @@ async def remind():
     )
 
     for index in range(len(response.data)):
-        feedingMessage = await bot.get_channel(FEEDING_CHANNEL_ID).send(
-            f"HAY {bot.get_user(response.data[index]['discord_id']).mention} ITD TIMED TO FEED TEH CARS AT BKOLCK {response.data[index]['block_num']} (react when you are done)  ≽^•⩊•^≼ ")
-        await feedingMessage.add_reaction(random.choice(FEEDING_EMOJIS))
+        currentLog = supabaseClient.table("feedingsLog").insert(
+            {"shift_member_name": response.data[index]["member_name"]}
+        ).execute()
+        view = FeedingButton(logID=currentLog.data[0]["id"])
+        await bot.get_channel(FEEDING_CHANNEL_ID).send(
+            f"HAY {bot.get_user(response.data[index]['discord_id']).mention} ITD TIMED TO FEED TEH CARS AT BKOLCK {response.data[index]['block_num']} (react when you are done)  ≽^•⩊•^≼ ", view=view)
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
