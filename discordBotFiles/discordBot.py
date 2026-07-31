@@ -30,7 +30,7 @@ FEEDING_CHANNEL_ID = 1527421490520133652
 WELCOME_CHANNEL_ID = 1530693475761127425
 EMERGENCIES_CHANNEL_ID = 1527325468007731360
 TALLY_BOT_ID = 1427635858604949667
-VET_FORM_ID = 1532138155854266539
+VET_FORM_IDS = [1532138155854266539, 1527427236481863850, 1532143077119230003]
 
 try:
     test = supabaseClient.table('feedingRun').select('*').execute()
@@ -87,7 +87,7 @@ async def on_member_join(member):
 
 @bot.tree.command(name="vet_visits", description="Reports for vet visits", guild=GUILD_ID)
 async def vet_visits(interaction: discord.Interaction):
-    if VET_FORM_ID not in [role.id for role in interaction.user.roles]:
+    if not any(role.id in VET_FORM_IDS for role in interaction.user.roles):
         await interaction.response.send_message("You dont have permission for this why are you trying /ᐠ ¬`‸´¬ マ")
         return
     modal = VetVisit()
